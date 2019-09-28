@@ -89,29 +89,49 @@ def save_messages_from_server():
     with open(get_chat_log_name(), "w") as out:
         json.dump(all_messages, out)
 
-def count_frequency(messages):
+def count_message_frequency(messages):
+    '''Returns a dictionary mapping most common aliases to their message count
+    '''
+    messages_per_person = {}
+    id_to_person = get_id_to_name_map(messages, True)
+    # Count messages total by name
+    for m in messages:
+        messages_per_person[id_to_person[m["user_id"]]] = messages_per_person.get(id_to_person[m["user_id"]], 0) + 1
+    return messages_per_person
+
     messages_per_name = {}
+    id_to_person = get_id_to_name_map(messages, True)
+    name_to_id = get_name_to_id_map(messages)
     # Count message totals by name
     for m in messages:
         messages_per_name[m["name"]] = messages_per_name.get(m["name"], 0) + 1
 
     messages_per_person = {}
-    # Combine tallies for aliases, using the most common alias
-    for id, names in get_id_to_name_map(messages).items():
-        # Total number of messages for the current id
-        id_message_total = 0
-
-        # Keep track of the most common alias
-        most_alias_messages = 0
-        most_common_alias = ""
-        for name in names:
-            id_message_total += messages_per_name[name]
-            if (most_alias_messages < messages_per_name[name]):
-                most_alias_messages = messages_per_name[name]
-                most_common_alias = name
-        messages_per_person[most_common_alias] = id_message_total
+    for name, count in messages_per_name.items():
+        messages_per_person[id_to_person[name_to_id[name]]] = messages_per_person.get(id_to_person[name_to_id[name]], 0) + count
 
     return messages_per_person
+
+def count_favorites_given_frequency(messages):
+    '''Returns a dictionary mapping most common aliases to their favorites given count
+    '''
+    favorites_per_person = {}
+    id_to_person = get_id_to_name_map(messages, True)
+    # Counts favorites by name
+    for m in messages:
+        for id in m["favorited_by"]:
+            favorites_per_person[id_to_person[id]] = favorites_per_person.get(id_to_person[id], 0) + 1
+    return favorites_per_person
+
+def count_favorites_received_frequency(messages):
+    '''Returns a dictionary mapping most common aliase to their favorites received count
+    '''
+    favorites_per_person = {}
+    id_to_person = get_id_to_name_map(messages, True)
+    # Counts favorites by name
+    for m in messages:
+        favorites_per_person[id_to_person[m["user_id"]]] = favorites_per_person.get(id_to_person[m["user_id"]], 0) + len(m["favorited_by"])
+    return favorites_per_person
 
 def get_name_to_id_map(messages):
     '''Returns a dictionary mapping names to ids
@@ -122,16 +142,31 @@ def get_name_to_id_map(messages):
             name_to_id[m["name"]] = m["user_id"]
     return name_to_id
 
-def get_id_to_name_map(messages):
-    '''Returns a dictionary mapping ids to names
+def get_id_to_name_map(messages, canonical=False):
+    '''Returns a dictionary mapping ids to set of names
     '''
-    id_to_name = {}
-    for m in messages:
-        if m["user_id"] not in id_to_name:
-            id_to_name[m["user_id"]] = {m["name"]}
-        else:
-            id_to_name[m["user_id"]].add(m["name"])
-    return id_to_name
+    if not canonical:
+        id_to_name = {}
+        for m in messages:
+            if m["user_id"] not in id_to_name:
+                id_to_name[m["user_id"]] = {m["name"]}
+            else:
+                id_to_name[m["user_id"]].add(m["name"])
+        return id_to_name
+    else:
+        id_to_name_count = {}
+        for m in messages:
+            if m["user_id"] not in id_to_name_count:
+                id_to_name_count[m["user_id"]] = {m["name"]:1}
+            else:
+                id_to_name_count[m["user_id"]][m["name"]] = id_to_name_count[m["user_id"]].get(m["name"], 0) + 1
+
+        id_to_cannon_name = {}
+        for id, names in id_to_name_count.items():
+            cannon_name = max(names.items(), key=lambda x : x[1])[0]
+            id_to_cannon_name[id] = cannon_name
+
+        return id_to_cannon_name
 
 def print_dict(dict):
     '''Cleanly prints the key, value pairs of a dictionary
@@ -142,12 +177,15 @@ def print_dict(dict):
 def main():
     # save_messages_from_server()
 
-    # messages = load_messages_from_file()
-    # print(len(messages))
+    messages = load_messages_from_file()
+    print("Total Message Count:", len(messages))
 
-    # print_dict(get_name_to_id_map(messages))
-    # print_dict(get_id_to_name_map(messages))
-    print_dict(count_frequency(messages))
+    # print("\nMessage counts:")
+    # print_dict(count_message_frequency(messages))
+    # print("\nFavorites given:")
+    # print_dict(count_favorites_given_frequency(messages))
+    # print("\nFavorites received:")
+    # print_dict(count_favorites_received_frequency(messages))
 
 if __name__ == '__main__':
     main()
