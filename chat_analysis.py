@@ -49,13 +49,12 @@ def load_messages_from_file():
 
     return chat_data
 
-def main():
-
+def save_messages_from_server():
     url = get_endpoint()
     access_token = get_access_token()
     initial_query_args = {
         "token" : access_token,
-        "limit" : 2
+        "limit" : 100
     }
 
     # List of all messages
@@ -67,19 +66,33 @@ def main():
 
     cycles = 0
 
-    while  messages_still_remain(current_res) and cycles < 2:
-        query_args = get_query_args(access_token, next_id)
-        current_res = requests.get(url, params=query_args).json()
-        all_messages.extend(current_res["response"]["messages"][::-1])
-        next_id = current_res["response"]["messages"][-1]["id"]
+    try:
+        while  messages_still_remain(current_res):
+            query_args = get_query_args(access_token, next_id)
+            current_res = requests.get(url, params=query_args).json()
+            all_messages.extend(current_res["response"]["messages"][::-1])
+            next_id = current_res["response"]["messages"][-1]["id"]
 
-        cycles += 1
-        sleep(1)
+            cycles += 1
+            sleep(0.5)
 
-        print("Retrieved cycle:", cycles)
+            print("Retrieved cycle:", cycles)
+    except:
+        print("Error!", "Cycle: ", cycles)
+        pass
 
     with open("chat_log.json", "w") as out:
         json.dump(all_messages, out)
+
+def main():
+    save_messages_from_server()
+    print("Done!")
+    # messages = load_messages_from_file()
+    # messages_per_person = {}
+    # for m in messages:
+    #     messages_per_person[m["name"]] = messages_per_person.get(m["name"], 0) + 1
+    #
+    # print(messages_per_person)
 
 if __name__ == '__main__':
     main()
