@@ -1,6 +1,8 @@
 import requests
 import json
 from time import sleep
+from textblob import TextBlob
+from textblob.sentiments import NaiveBayesAnalyzer
 
 def get_endpoint():
     '''Retrieves endpoint from authentication.json
@@ -124,7 +126,7 @@ def count_favorites_given_frequency(messages):
     return favorites_per_person
 
 def count_favorites_received_frequency(messages):
-    '''Returns a dictionary mapping most common aliase to their favorites received count
+    '''Returns a dictionary mapping most common aliases to their favorites received count
     '''
     favorites_per_person = {}
     id_to_person = get_id_to_name_map(messages, True)
@@ -174,6 +176,69 @@ def print_dict(dict):
     for key, item in dict.items():
         print(key, ":", item)
 
+def get_person_to_texts(messages):
+    '''Returns a dictionary mapping most common aliases to their messages
+    '''
+    person_to_texts = {}
+    id_to_person = get_id_to_name_map(messages, True)
+    # Appends message texts for each person
+    for m in messages:
+        if id_to_person[m["user_id"]] in person_to_texts:
+            person_to_texts[id_to_person[m["user_id"]]].append(m["text"])
+        else:
+            person_to_texts[id_to_person[m["user_id"]]] = [m["text"]]
+    return person_to_texts
+
+def get_person_average_sentiment(messages, ignore_zero=False, analyzer="default"):
+    '''Returns a dictionary mapping most common aliases to their average sentiment
+    '''
+    person_to_sentiment = {}
+    person_to_texts = get_person_to_texts(messages)
+
+    epsilon = 0.01
+    naive_bayes_analyzer = NaiveBayesAnalyzer()
+    counter = 0
+    # Computes average polarity and subjectivity for each person
+    for person, texts in person_to_texts.items():
+        counter += 1
+        print(counter)
+        polarity_total = 0
+        polarity_count = 0
+        subjectivity_total = 0
+        subjectivity_count = 0
+        for text in texts:
+            if text == None:
+                continue
+
+            sentiment = None
+            if analyzer == "default":
+                sentiment = TextBlob(text).sentiment
+                if ignore_zero:
+                    if abs(sentiment[0]) > epsilon:
+                        polarity_total += sentiment[0]
+                        polarity_count += 1
+                    if abs(sentiment[1]) > epsilon:
+                        subjectivity_total += sentiment[1]
+                        subjectivity_count += 1
+                else:
+                    polarity_total += sentiment[0]
+                    polarity_count += 1
+                    subjectivity_total += sentiment[1]
+                    subjectivity_count += 1
+            elif analyzer == "NaiveBayesAnalyzer":
+                sentiment = TextBlob(text, analyzer=naive_bayes_analyzer).sentiment
+                if sentiment[0] == "pos":
+                    polarity_total += 1
+                polarity_count += 1
+
+
+        polarity_count = max(polarity_count, 1)
+        subjectivity_count = max(subjectivity_count, 1)
+        person_to_sentiment[person] = (polarity_total/polarity_count, subjectivity_total/subjectivity_count)
+
+    return person_to_sentiment
+
+
 def main():
     # save_messages_from_server()
 
@@ -186,6 +251,8 @@ def main():
     # print_dict(count_favorites_given_frequency(messages))
     # print("\nFavorites received:")
     # print_dict(count_favorites_received_frequency(messages))
+
+    print_dict(get_person_average_sentiment(messages, True))
 
 if __name__ == '__main__':
     main()
