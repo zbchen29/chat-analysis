@@ -98,20 +98,7 @@ def count_message_frequency(messages):
     id_to_person = get_id_to_name_map(messages, True)
     # Count messages total by name
     for m in messages:
-        messages_per_person[id_to_person[m["user_id"]]] = messages_per_person.get(id_to_person[m["user_id"]], 0) + 1
-    return messages_per_person
-
-    messages_per_name = {}
-    id_to_person = get_id_to_name_map(messages, True)
-    name_to_id = get_name_to_id_map(messages)
-    # Count message totals by name
-    for m in messages:
-        messages_per_name[m["name"]] = messages_per_name.get(m["name"], 0) + 1
-
-    messages_per_person = {}
-    for name, count in messages_per_name.items():
-        messages_per_person[id_to_person[name_to_id[name]]] = messages_per_person.get(id_to_person[name_to_id[name]], 0) + count
-
+        messages_per_person[id_to_person.get(m["user_id"], "USER ID: " + str(m["user_id"]))] = messages_per_person.get(id_to_person.get(m["user_id"], "USER ID: " + str(m["user_id"])), 0) + 1
     return messages_per_person
 
 def count_favorites_given_frequency(messages):
@@ -122,7 +109,7 @@ def count_favorites_given_frequency(messages):
     # Counts favorites by name
     for m in messages:
         for id in m["favorited_by"]:
-            favorites_per_person[id_to_person[id]] = favorites_per_person.get(id_to_person[id], 0) + 1
+            favorites_per_person[id_to_person.get(id, "USER ID: " + str(id))] = favorites_per_person.get(id_to_person.get(id, "USER ID: " + str(id)), 0) + 1
     return favorites_per_person
 
 def count_favorites_received_frequency(messages):
@@ -132,7 +119,7 @@ def count_favorites_received_frequency(messages):
     id_to_person = get_id_to_name_map(messages, True)
     # Counts favorites by name
     for m in messages:
-        favorites_per_person[id_to_person[m["user_id"]]] = favorites_per_person.get(id_to_person[m["user_id"]], 0) + len(m["favorited_by"])
+        favorites_per_person[id_to_person.get(m["user_id"], "USER ID: " + str(m["user_id"]))] = favorites_per_person.get(id_to_person.get(m["user_id"], "USER ID: " + str(m["user_id"])), 0) + len(m["favorited_by"])
     return favorites_per_person
 
 def get_name_to_id_map(messages):
@@ -196,12 +183,10 @@ def get_person_average_sentiment(messages, ignore_zero=False, analyzer="default"
     person_to_texts = get_person_to_texts(messages)
 
     epsilon = 0.01
+    naive_bayes_analyzer_margin = 0.2
     naive_bayes_analyzer = NaiveBayesAnalyzer()
-    counter = 0
     # Computes average polarity and subjectivity for each person
     for person, texts in person_to_texts.items():
-        counter += 1
-        print(counter)
         polarity_total = 0
         polarity_count = 0
         subjectivity_total = 0
@@ -227,9 +212,20 @@ def get_person_average_sentiment(messages, ignore_zero=False, analyzer="default"
                     subjectivity_count += 1
             elif analyzer == "NaiveBayesAnalyzer":
                 sentiment = TextBlob(text, analyzer=naive_bayes_analyzer).sentiment
-                if sentiment[0] == "pos":
-                    polarity_total += 1
-                polarity_count += 1
+                if ignore_zero:
+                    probability_diff = sentiment[1] - sentiment[2]
+                    if (abs(probability_diff) > naive_bayes_analyzer_margin):
+                        if probability_diff > naive_bayes_analyzer_margin:
+                            polarity_total += 1
+                        if probability_diff < -naive_bayes_analyzer_margin:
+                            polarity_total -= 1
+                        polarity_count += 1
+                else:
+                    if sentiment[0] == "pos":
+                        polarity_total += 1
+                    else:
+                        polarity_total -= 1
+                    polarity_count += 1
 
 
         polarity_count = max(polarity_count, 1)
@@ -237,7 +233,6 @@ def get_person_average_sentiment(messages, ignore_zero=False, analyzer="default"
         person_to_sentiment[person] = (polarity_total/polarity_count, subjectivity_total/subjectivity_count)
 
     return person_to_sentiment
-
 
 def main():
     # save_messages_from_server()
