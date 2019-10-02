@@ -1,6 +1,10 @@
 # GroupMe Chat Analysis
 Suite of functions for parsing and analyzing GroupMe group chat data from servers or from a local file.  Performs sentiment analysis, message aggregation, alias retrieval, etc.
 
+![sentiment](plots/messages_sentiment.png)   |![messages_count](plots/messages_count.png)
+:-------------------------------------------:|:-------------------------------------------------:
+![favorites given](plots/favorites_given.png)|![favorites received](plots/favorites_received.png)
+
 ### Sentiment Analysis
 ```
 def get_person_average_sentiment(messages, ignore_zero=False, analyzer="default"):
